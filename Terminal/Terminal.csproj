@@ -4,16 +4,17 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{3ED1D971-8D61-42AA-90CD-94681A0D4AB7}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>NodeNet</RootNamespace>
-    <AssemblyName>NodeNet</AssemblyName>
+    <ProjectGuid>{65FBA513-9736-430B-96F0-C032401FAE30}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Terminal</RootNamespace>
+    <AssemblyName>Terminal</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
@@ -23,6 +24,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
@@ -41,21 +43,17 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Connector.cs" />
-    <Compile Include="Protocol\Message.cs" />
-    <Compile Include="Public\Node.cs" />
-    <Compile Include="NodeCapabilities.cs" />
-    <Compile Include="NodeClient.cs" />
-    <Compile Include="NodeConnectionReceiveThread.cs" />
-    <Compile Include="NodeConnectionSendThread.cs" />
+    <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Protocol\ProtocolConnectionHandshake.cs" />
-    <Compile Include="Protocol\ProtocolException.cs" />
-    <Compile Include="Protocol\ProtocolReader.cs" />
-    <Compile Include="Protocol\ProtocolWriter.cs" />
-    <Compile Include="NodeInfo.cs" />
-    <Compile Include="Public\Response.cs" />
-    <Compile Include="Public\Trace.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NodeNet\NodeNet.csproj">
+      <Project>{3ed1d971-8d61-42aa-90cd-94681a0d4ab7}</Project>
+      <Name>NodeNet</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

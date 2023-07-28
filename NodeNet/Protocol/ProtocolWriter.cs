@@ -58,6 +58,7 @@ namespace NodeNet
         {
             WriteMessageType(MessageType.Response);
             writer.Write((uint)message.RequestId);
+            writer.Write((byte)message.RequestResult);
             writer.Write((uint)message.ResponseData.Length);
             writer.Write(message.ResponseData);
         }

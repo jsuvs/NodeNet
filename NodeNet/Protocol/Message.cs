@@ -71,11 +71,14 @@ namespace NodeNet
     internal class ResponseMessage : Message
     {
         public uint RequestId { get; set; }
+        public RequestResult RequestResult {get; set;}
         public byte[] ResponseData { get; }
+        
 
-        public ResponseMessage(uint requestId, byte[] responseData) : base(MessageType.Response)
+        public ResponseMessage(uint requestId, RequestResult result, byte[] responseData) : base(MessageType.Response)
         {
             this.RequestId = requestId;
+            this.RequestResult = result;
             this.ResponseData = responseData;
         }
 
@@ -84,5 +87,12 @@ namespace NodeNet
             var command = Encoding.ASCII.GetString(ResponseData);
             return $"rid={RequestId} cmd={command}";
         }
+    }
+
+    enum RequestResult
+    {
+        Success,
+        ResolveError,
+        Timeout
     }
 }

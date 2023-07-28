@@ -1,12 +1,20 @@
 ﻿using System;
+using System.IO.Ports;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 
 namespace NodeNet
 {
+    /// <summary>
+    /// Acts to collapse the two cases 'listener accept' and 'connect as client' to a single 'new TCP client' event
+    /// </summary>
     internal class Connector
     {
+        internal delegate void OnClientConnectDelegate(TcpClient tcpClient, bool isOutgoing);
+        internal event OnClientConnectDelegate OnClientConnect;
+        ProtocolConnectionHandshake handshake = new ProtocolConnectionHandshake();
+
         public void Connect(string host, int port)
         {
             var tcpClient = new TcpClient(host, port);
@@ -45,7 +53,14 @@ namespace NodeNet
             OnClientConnect?.Invoke(tcpClient, false);
         }
 
-        internal delegate void OnClientConnectDelegate(TcpClient tcpClient, bool isOutgoing);
-        internal event OnClientConnectDelegate OnClientConnect;
+        internal bool DoHandshake(NodeClient nodeClient, Node node, bool isClient)
+        {
+            bool success;
+            if (isClient)
+                success = handshake.DoHandshakeAsClient(nodeClient, node);
+            else
+                success = handshake.DoHandshakeAsServer(nodeClient, node);
+            return success;
+        }
     }
 }

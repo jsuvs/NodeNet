@@ -5,16 +5,15 @@ namespace NodeNet
 {
     internal class NodeConnectionReceiveThread
     {
+        internal event Action OnFailure;
+        internal event Action<Message> OnMessageReceived;
+        internal event Action OnNetTimeout;
         private NodeClient client;
         DateTime lastRemoteContact;
         internal NodeConnectionReceiveThread(NodeClient client)
         {
             this.client = client;
         }
-        internal event Action OnFailure;
-        internal event Action<Message> OnMessageReceived;
-
-        internal event Action OnNetTimeout;
 
         bool IsActive { get; set; }
         internal void Start()

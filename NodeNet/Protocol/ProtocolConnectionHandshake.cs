@@ -72,9 +72,7 @@ namespace NodeNet
             }
             catch (Exception e)
             {
-                //TODO
-                //IOException with inner exception SocketException, SocketErrorCode::TimedOut indicates timeout
-                //trace.Failure(TraceEventId.DeviceHandshakeAsServerFailure, e.ToString());
+                Trace.Instance.Emit(TraceEventId.HandshakeAsServerError, e);
                 return false;
             }
             return true;

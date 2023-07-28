@@ -7,26 +7,26 @@ using System.Threading.Tasks;
 
 namespace NodeNet
 {
+    /// <summary>
+    /// Manages connection to a another node
+    /// </summary>
     internal class NodeClient
     {
+        internal NodeInfo RemoteNodeInfo { get; private set; } = new NodeInfo();
         internal event Action<RequestMessage, NodeClient> OnRequestReceived;
-        //internal event Action<ResponseMessage, NodeConnectionClient> OnResponseReceived;
         internal event Action<NodeClient> OnShutdown;
-
-        TcpClient tcpClient;
-        ProtocolConnectionHandshake handshake = new ProtocolConnectionHandshake();
         internal ProtocolReader Reader { get; private set; }
         internal ProtocolWriter Writer { get; private set; }
-        bool isOutgoing;
-        internal NodeInfo RemoteNodeInfo { get; private set; } = new NodeInfo();
-
+        TcpClient tcpClient;
         NodeConnectionReceiveThread receiveThread;
         NodeConnectionSendThread sendThread;
 
-        internal NodeClient(TcpClient tcpClient, bool isOutgoing)
+        /// <summary>
+        /// Instantiate with a connected TCP client and whether we are connecting to another node or being connected to
+        /// </summary>
+        internal NodeClient(TcpClient tcpClient)
         {
             this.tcpClient = tcpClient;
-            this.isOutgoing = isOutgoing;
             Stream stream = tcpClient.GetStream();
             stream.ReadTimeout = 10000;
             stream.WriteTimeout = 10000;
@@ -36,6 +36,8 @@ namespace NodeNet
 
         internal void Start()
         {
+            //for now there's a separate receive and send thread for each client
+            //which drive the protocol reader and writer
             receiveThread = new NodeConnectionReceiveThread(this);
             receiveThread.OnMessageReceived += ReceiveThread_OnMessageReceived;
             receiveThread.OnFailure += ReceiveThread_OnFailure;
@@ -45,15 +47,20 @@ namespace NodeNet
             sendThread.Start();
         }
 
+        /// <summary>
+        /// Inbound message received
+        /// </summary>
         private void ReceiveThread_OnMessageReceived(Message message)
         {
             Trace.Instance.Emit(TraceEventId.OnMessageReceived, message);
             if (message.Type == MessageType.Request)
             {
+                //inbound requests are handled by the node
                 OnRequestReceived?.Invoke(message as RequestMessage, this);
             }
             else if (message.Type == MessageType.Response)
             {
+                //inbound responses must be matched with a previously sent request
                 var responseMessage = message as ResponseMessage;
                 lock (pendingResponses)
                 {
@@ -65,6 +72,8 @@ namespace NodeNet
                         return;
                     }
                     pendingResponses.Remove(responseMessage.RequestId);
+                    
+                    //forward the response on
                     //replace request ID with the original request ID set by the request sender
                     responseMessage.RequestId = pendingResponse.OriginalRequestId;
                     Task.Run(() =>
@@ -83,22 +92,16 @@ namespace NodeNet
         {
             Shutdown();
         }
+
+        /// <summary>
+        /// Shuts down the connection to the remote node
+        /// </summary>
         internal void Shutdown()
         {
             Trace.Instance.Emit(TraceEventId.ClientShutdown, RemoteNodeInfo.Name);
             receiveThread?.Shutdown();
             sendThread?.Shutdown();
             OnShutdown?.Invoke(this);
-        }
-
-        internal bool DoHandshake(Node thisNode)
-        {
-            bool success;
-            if (isOutgoing)
-                success = handshake.DoHandshakeAsClient(this, thisNode);
-            else
-                success = handshake.DoHandshakeAsServer(this, thisNode);
-            return success;
         }
 
         class PendingResponseRecord
@@ -117,38 +120,51 @@ namespace NodeNet
 
         Dictionary<uint, PendingResponseRecord> pendingResponses = new Dictionary<uint, PendingResponseRecord>();
         uint nextRequestId = 1;
+
+        /// <summary>
+        /// Sends an outbound request to the connected node
+        /// </summary>
         internal async Task<ResponseMessage> SendAsync(RequestMessage message, int responseTimeoutMs=10000)
         {
-            if (responseTimeoutMs > 0)
+            bool expectResponse = responseTimeoutMs > 0;
+            if (!expectResponse)
             {
-                var timeoutTask = Task.Delay(responseTimeoutMs);
-                var tcs = new TaskCompletionSource<ResponseMessage>();
+                sendThread.Send(message);
+                return null;
+            }
+
+            //create a pending response entry
+            //a response is expected within the timeout window or a timeout response will be generated and returned
+            var timeoutTask = Task.Delay(responseTimeoutMs);
+            var tcs = new TaskCompletionSource<ResponseMessage>();
+            lock (pendingResponses)
+            {
+                var pendingRecord = new PendingResponseRecord(nextRequestId, message.RequestId, tcs);
+                message.RequestId = nextRequestId;
+                nextRequestId++;
+                pendingResponses.Add(message.RequestId, pendingRecord);
+            }
+            sendThread.Send(message);
+            //which ever completes first
+            var completedTask = await Task.WhenAny(tcs.Task, timeoutTask);
+            if (completedTask == timeoutTask)
+            {
                 lock (pendingResponses)
                 {
-                    var pendingRecord = new PendingResponseRecord(nextRequestId, message.RequestId, tcs);
-                    message.RequestId = nextRequestId;
-                    nextRequestId++;
-                    pendingResponses.Add(message.RequestId, pendingRecord);
+                    pendingResponses.Remove(nextRequestId);
                 }
-                sendThread.Send(message);
-                var completedTask = await Task.WhenAny(tcs.Task, timeoutTask);
-                if (completedTask == timeoutTask)
-                {
-                    tcs.SetException(new TimeoutException());
-                    return tcs.Task.Result;
-                }
-                else
-                {
-                    return tcs.Task.Result;
-                }
+                tcs.SetException(new TimeoutException());
+                return tcs.Task.Result;
             }
             else
             {
-                sendThread.Send(message);
+                return tcs.Task.Result;
             }
-            return null;
         }
 
+        /// <summary>
+        /// Sends an outbound response to the remote node
+        /// </summary>
         internal void SendResponse(ResponseMessage message)
         {
             Trace.Instance.Emit(TraceEventId.SendResponse, message);

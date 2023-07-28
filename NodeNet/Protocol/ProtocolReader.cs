@@ -54,10 +54,11 @@ namespace NodeNet
         ResponseMessage ReceiveResponseMessage()
         {
             uint requestId = reader.ReadUInt32();
+            var result = (RequestResult)reader.ReadByte();
             uint responseDataLength = reader.ReadUInt32();
             //todo protect against attack
             var responseData = reader.ReadBytes((int)responseDataLength);
-            var response = new ResponseMessage(requestId, responseData);
+            var response = new ResponseMessage(requestId, result, responseData);
             return response;
         }
 

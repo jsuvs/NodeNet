@@ -7,16 +7,20 @@ namespace NodeNet
 {
     internal class NodeConnectionSendThread
     {
+        internal event Action OnFailure;
         private NodeClient client;
         BlockingCollection<Message> sendQueue = new BlockingCollection<Message>();
+        bool IsActive { get; set; }
+        DateTime nextKeepAlive;
+        CancellationToken cancellationToken;
+        CancellationTokenSource cancellationSource = new CancellationTokenSource();
+
         internal NodeConnectionSendThread(NodeClient client)
         {
             this.client = client;
             cancellationToken = cancellationSource.Token;
         }
 
-        internal event Action OnFailure;
-        bool IsActive { get; set; }
         internal void Start()
         {
             IsActive = true;
@@ -29,7 +33,6 @@ namespace NodeNet
             cancellationSource.Cancel();
         }
 
-        DateTime nextKeepAlive;
         int SecondsUntilNextKeepalive()
         {
             if (!SendKeepAlives)
@@ -58,8 +61,7 @@ namespace NodeNet
                 return 20; // client.IdleTimeoutPolicy.Interval / 2 + 1;
             }
         }
-        CancellationToken cancellationToken;
-        CancellationTokenSource cancellationSource = new CancellationTokenSource();
+        
         void ThreadProc()
         {
             if (SendKeepAlives)
@@ -89,9 +91,8 @@ namespace NodeNet
             {
                 //cancellationToken cancelled
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                //tracer.Failure(TraceEventId.ClientMessageSendError, e.ToString());
                 OnFailure?.Invoke();
             }
         }

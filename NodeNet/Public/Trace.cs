@@ -37,6 +37,10 @@ namespace NodeNet
         ClientShutdown,
         SendResponse,
         KeepaliveReceived,
-        SendError
+        SendError,
+        ForwardError,
+        Timeout,
+        ResponseReceived,
+        HandshakeAsServerError
     }
 }
