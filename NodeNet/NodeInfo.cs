@@ -1,12 +1,14 @@
 ﻿using System;
+using System.Net;
 
 namespace NodeNet
 {
-    internal class NodeInfo
+    public class NodeInfo
     {
-        internal Guid Id { get; set; }
-        internal string Name { get; set; }
-        internal NodeCapabilities Capabilities { get; set; }
+        public EndPoint Endpoint { get; internal set; }
+        public Guid Id { get; set; }
+        public string Name { get; set; }
+        public NodeCapabilities Capabilities { get; set; }
     }
 }
 

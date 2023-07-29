@@ -30,7 +30,7 @@ namespace Terminal
         {
             RegisterCommands();
             node = new Node(nodeName);
-            node.OnReceiveRequest += Node_OnReceiveRequest;
+            node.OnRequestReceived += Node_OnReceiveRequest;
             node.OnTraceEvent += Node_OnTraceEvent;
             while (true)
             {
@@ -115,7 +115,16 @@ namespace Terminal
             {
                 Console.WriteLine($"error {e.ToString()}");
             }
-            
+        }
+
+        void Ls(string[] args)
+        {
+            StringBuilder ret = new StringBuilder();
+            foreach (var n in node.GetConnectedNodeInfo())
+            {
+                ret.AppendLine(n.Name + "\t" + n.Id + "\t" + n.Endpoint);
+            }
+            Console.WriteLine(ret.ToString());
         }
 
         string GetResponseText(Response response)
@@ -139,6 +148,7 @@ namespace Terminal
             commands["connect"] = Connect;
             commands["listen"] = Listen;
             commands["send"] = Send;
+            commands["ls"] = Ls;
         }
 
         void PrintUsage()

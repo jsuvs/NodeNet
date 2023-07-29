@@ -5,6 +5,13 @@ namespace NodeNet
 {
     internal class ProtocolConnectionHandshake
     {
+        private Trace trace;
+
+        public ProtocolConnectionHandshake(Trace trace)
+        {
+            this.trace = trace;
+        }
+
         internal bool DoHandshakeAsClient(NodeClient client, Node thisNode)
         {
             try
@@ -72,7 +79,7 @@ namespace NodeNet
             }
             catch (Exception e)
             {
-                Trace.Instance.Emit(TraceEventId.HandshakeAsServerError, e);
+                trace.Emit(TraceEventId.HandshakeAsServerError, e);
                 return false;
             }
             return true;

@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Sockets;
 using System.Threading.Tasks;
@@ -21,7 +23,7 @@ namespace NodeNet
         /// <summary>
         /// Raised when the node receives data from connected node
         /// </summary>
-        public event ReceiveRequestDelegate OnReceiveRequest;
+        public event ReceiveRequestDelegate OnRequestReceived;
 
         public delegate void TraceEventDelegate(TraceEventId eventId, string arguments);
 
@@ -31,9 +33,10 @@ namespace NodeNet
         public event TraceEventDelegate OnTraceEvent;
 
         internal NodeInfo Info { get; set; } = new NodeInfo();
-        BlockingCollection<NodeClient> clients = new BlockingCollection<NodeClient>();
+        ConcurrentDictionary<NodeClient, NodeClient> clients = new ConcurrentDictionary<NodeClient, NodeClient>();
         Connector connector;
-        
+        Trace trace = new Trace();
+
         /// <summary>
         /// Creates a new node with the given name
         /// </summary>
@@ -42,9 +45,9 @@ namespace NodeNet
             Info.Id = Guid.NewGuid();
             Info.Capabilities = NodeCapabilities.None;
             Info.Name = name;
-            connector = new Connector();
+            connector = new Connector(trace);
             connector.OnClientConnect += Connector_OnClientConnect;
-            Trace.Instance.OnEvent += Instance_OnEvent;
+            trace.OnEvent += Instance_OnEvent;
         }
 
         /// <summary>
@@ -52,7 +55,7 @@ namespace NodeNet
         /// </summary>
         public void Connect(string host, int port)
         {
-            Trace.Instance.Emit(TraceEventId.Connect, host, port);
+            trace.Emit(TraceEventId.Connect, host, port);
             connector.Connect(host, port);
         }
 
@@ -61,7 +64,7 @@ namespace NodeNet
         /// </summary>
         public void StartListener(int port)
         {
-            Trace.Instance.Emit(TraceEventId.StartListener, port);
+            trace.Emit(TraceEventId.StartListener, port);
             connector.StartListener(port);
         }
 
@@ -86,9 +89,9 @@ namespace NodeNet
         /// <returns>A response</returns>
         public async Task<Response> SendAsync(byte[] data, string destination = null)
         {
-            Trace.Instance.Emit(TraceEventId.SendAsync, data, destination);
+            trace.Emit(TraceEventId.SendAsync, data, destination);
             //TODO: for now if there is only one connected node then dont bother resolving the destination
-            var handler = clients.FirstOrDefault();
+            var handler = clients.FirstOrDefault().Key;
             if (clients.Count > 1)
             {
                 //if connected to more than one node then decide the node to send it to based on the destination
@@ -105,7 +108,7 @@ namespace NodeNet
             try
             {
                 var response = await handler.SendAsync(message);
-                Trace.Instance.Emit(TraceEventId.ResponseReceived, response.RequestResult);
+                trace.Emit(TraceEventId.ResponseReceived, response.RequestResult);
                 if (response.RequestResult == RequestResult.Success)
                     return new Response(ResponseStatus.Success, response.ResponseData);
                 else if (response.RequestResult == RequestResult.Timeout)
@@ -119,12 +122,22 @@ namespace NodeNet
             {
                 if (e.InnerException is TimeoutException)
                 {
-                    Trace.Instance.Emit(TraceEventId.Timeout, e);
+                    trace.Emit(TraceEventId.Timeout, e);
                     return new Response(ResponseStatus.Timeout, null);
                 }
-                Trace.Instance.Emit(TraceEventId.SendError, e);
+                trace.Emit(TraceEventId.SendError, e);
                 return new Response(ResponseStatus.UnknownError, null);
             }
+        }
+
+        public List<NodeInfo> GetConnectedNodeInfo()
+        {
+            var ret = new List<NodeInfo>();
+            foreach (var client in clients.Values)
+            {
+                ret.Add(new NodeInfo() { Id = client.RemoteNodeInfo.Id, Name = client.RemoteNodeInfo.Name, Capabilities = client.RemoteNodeInfo.Capabilities, Endpoint = client.RemoteNodeInfo.Endpoint });
+            }
+            return ret;
         }
 
         /// <summary>
@@ -133,19 +146,19 @@ namespace NodeNet
         /// </summary>
         private void Connector_OnClientConnect(TcpClient tcpClient, bool isOutgoing)
         {
-            Trace.Instance.Emit(TraceEventId.OnClientConnect, tcpClient.Client.RemoteEndPoint);
-            var client = new NodeClient(tcpClient);
+            trace.Emit(TraceEventId.OnClientConnect, tcpClient.Client.RemoteEndPoint);
+            var client = new NodeClient(tcpClient, trace);
             bool success = connector.DoHandshake(client, this, isOutgoing);
             if (!success)
             {
-                Trace.Instance.Emit(TraceEventId.HandshakeFail);
+                trace.Emit(TraceEventId.HandshakeFail);
                 //TODO
                 return;
             }
-            Trace.Instance.Emit(TraceEventId.HandshakeSuccess);
+            trace.Emit(TraceEventId.HandshakeSuccess);
             client.OnRequestReceived += Client_OnRequestReceived;
             client.OnShutdown += Client_OnShutdown;
-            clients.Add(client);
+            AddClient(client);
             client.Start();
         }
 
@@ -153,7 +166,7 @@ namespace NodeNet
         {
             //this method is called from the receiving node client thread. Nothing in here must block
             //TODO refactor
-            Trace.Instance.Emit(TraceEventId.OnRequestReceived, sourceClient.RemoteNodeInfo.Name, message.ToString());
+            trace.Emit(TraceEventId.OnRequestReceived, sourceClient.RemoteNodeInfo.Name, message.ToString());
             //if the request is for this node then it should be handled by the application
             if (IsSelf(message.TargetNodeId, message.TargetNodeName))
             {
@@ -161,7 +174,7 @@ namespace NodeNet
                 //run event on different thread so the receive thread is not blocked
                 await Task.Run(() =>
                 {
-                    byte[] response = OnReceiveRequest?.Invoke(requestData);
+                    byte[] response = OnRequestReceived?.Invoke(requestData);
                     if (response != null)
                     {
                         var responseMessage = new ResponseMessage(message.RequestId, RequestResult.Success, response);
@@ -185,7 +198,9 @@ namespace NodeNet
                 try
                 {
                     //forward the request and later forward back the response
+                    trace.Emit(TraceEventId.ForwardMessage, message.RequestId);
                     var response = await client.SendAsync(message);
+                    trace.Emit(TraceEventId.ForwardResponse, message.RequestId);
                     sourceClient.SendResponse(response);
                 }
                 catch (Exception e)
@@ -194,7 +209,7 @@ namespace NodeNet
                     {
                         sourceClient.SendResponse(new ResponseMessage(requestId, RequestResult.Timeout, new byte[0]));
                     }
-                    Trace.Instance.Emit(TraceEventId.ForwardError, e);
+                    trace.Emit(TraceEventId.ForwardError, e);
                 }
             }
         }
@@ -216,20 +231,26 @@ namespace NodeNet
         {
             lock (clients)
             {
-                return clients.FirstOrDefault(h => h.MatchesRemoteNode(nodeId, nodeName));
+                return clients.FirstOrDefault(h => h.Key.MatchesRemoteNode(nodeId, nodeName)).Key;
             }
         }
 
         private void Client_OnShutdown(NodeClient client)
         {
+            trace.Emit(TraceEventId.RemoveClient, client.RemoteNodeInfo.Id);
             //TODO
+            lock (clients)
+            {
+                NodeClient ret;
+                clients.TryRemove(client, out ret);
+            }
         }
 
         internal void AddClient(NodeClient client)
         {
             lock (clients)
             {
-                clients.Add(client);
+                clients.TryAdd(client, client); //TODO
             }
         }
 

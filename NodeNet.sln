@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NodeNet", "NodeNet\NodeNet.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Terminal", "Terminal\Terminal.csproj", "{65FBA513-9736-430B-96F0-C032401FAE30}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnitTests", "UnitTests\UnitTests.csproj", "{B04410FD-78DC-4229-9846-53538C2CECE5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{65FBA513-9736-430B-96F0-C032401FAE30}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{65FBA513-9736-430B-96F0-C032401FAE30}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{65FBA513-9736-430B-96F0-C032401FAE30}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B04410FD-78DC-4229-9846-53538C2CECE5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B04410FD-78DC-4229-9846-53538C2CECE5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B04410FD-78DC-4229-9846-53538C2CECE5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B04410FD-78DC-4229-9846-53538C2CECE5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO.Ports;
 using System.Net;
 using System.Net.Sockets;
@@ -13,7 +14,14 @@ namespace NodeNet
     {
         internal delegate void OnClientConnectDelegate(TcpClient tcpClient, bool isOutgoing);
         internal event OnClientConnectDelegate OnClientConnect;
-        ProtocolConnectionHandshake handshake = new ProtocolConnectionHandshake();
+        ProtocolConnectionHandshake handshake;
+        private Trace trace;
+
+        public Connector(Trace trace)
+        {
+            this.trace = trace;
+            handshake = new ProtocolConnectionHandshake(trace);
+        }
 
         public void Connect(string host, int port)
         {
@@ -33,11 +41,11 @@ namespace NodeNet
             {
                 var listener = new TcpListener(new IPEndPoint(IPAddress.Any, port));
                 listener.Start(10);
-                Trace.Instance.Emit(TraceEventId.ListenerStarted, port);
+                trace.Emit(TraceEventId.ListenerStarted, port);
                 while (true)
                 {
                     var client = listener.AcceptTcpClient();
-                    Trace.Instance.Emit(TraceEventId.ListenerAccept, Convert.ToString(client.Client.RemoteEndPoint));
+                    trace.Emit(TraceEventId.ListenerAccept, Convert.ToString(client.Client.RemoteEndPoint));
                     OnAccept(client);
                 }
             }

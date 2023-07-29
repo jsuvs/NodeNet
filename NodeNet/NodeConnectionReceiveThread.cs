@@ -10,9 +10,16 @@ namespace NodeNet
         internal event Action OnNetTimeout;
         private NodeClient client;
         DateTime lastRemoteContact;
+        private Trace trace;
+
         internal NodeConnectionReceiveThread(NodeClient client)
         {
             this.client = client;
+        }
+
+        public NodeConnectionReceiveThread(NodeClient client, Trace trace) : this(client)
+        {
+            this.trace = trace;
         }
 
         bool IsActive { get; set; }
@@ -38,7 +45,7 @@ namespace NodeNet
                     lastRemoteContact = DateTime.Now; //TODO DST
                     if (message.Type == MessageType.KeepAlive)
                     {
-                        Trace.Instance.Emit(TraceEventId.KeepaliveReceived, client.RemoteNodeInfo.Name);
+                        trace.Emit(TraceEventId.KeepaliveReceived, client.RemoteNodeInfo.Name);
                         //consume keepalives
                         continue;
                     }

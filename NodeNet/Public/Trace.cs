@@ -5,15 +5,8 @@ namespace NodeNet
 {
     internal class Trace
     {
-        static Trace()
-        {
-            Instance = new Trace();
-        }
-        private Trace() { }
-        internal static Trace Instance { get; private set; }
 
         internal event TraceEventDelegate OnEvent;
-
         internal void Emit(TraceEventId e, params object[] args)
         {
             string argText = string.Join(", ", args);
@@ -41,6 +34,9 @@ namespace NodeNet
         ForwardError,
         Timeout,
         ResponseReceived,
-        HandshakeAsServerError
+        HandshakeAsServerError,
+        ForwardMessage,
+        ForwardResponse,
+        RemoveClient
     }
 }

@@ -4,7 +4,7 @@ using System.Net.Http;
 
 namespace NodeNet
 {
-    enum NodeCapabilities
+    public enum NodeCapabilities
     {
         None
     }

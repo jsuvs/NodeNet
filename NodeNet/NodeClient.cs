@@ -34,11 +34,17 @@ namespace NodeNet
             Writer = new ProtocolWriter(stream);
         }
 
+        public NodeClient(TcpClient tcpClient, Trace trace) : this(tcpClient)
+        {
+            this.trace = trace;
+            RemoteNodeInfo.Endpoint = tcpClient.Client.RemoteEndPoint;
+        }
+
         internal void Start()
         {
             //for now there's a separate receive and send thread for each client
             //which drive the protocol reader and writer
-            receiveThread = new NodeConnectionReceiveThread(this);
+            receiveThread = new NodeConnectionReceiveThread(this, trace);
             receiveThread.OnMessageReceived += ReceiveThread_OnMessageReceived;
             receiveThread.OnFailure += ReceiveThread_OnFailure;
             sendThread = new NodeConnectionSendThread(this);
@@ -52,7 +58,7 @@ namespace NodeNet
         /// </summary>
         private void ReceiveThread_OnMessageReceived(Message message)
         {
-            Trace.Instance.Emit(TraceEventId.OnMessageReceived, message);
+            trace.Emit(TraceEventId.OnMessageReceived, message);
             if (message.Type == MessageType.Request)
             {
                 //inbound requests are handled by the node
@@ -68,7 +74,7 @@ namespace NodeNet
                     if (!pendingResponses.TryGetValue(responseMessage.RequestId, out pendingResponse))
                     {
                         //no matching request was sent, or it has already timed out. Ignore.
-                        Trace.Instance.Emit(TraceEventId.MismatchingResponse, responseMessage.RequestId);
+                        trace.Emit(TraceEventId.MismatchingResponse, responseMessage.RequestId);
                         return;
                     }
                     pendingResponses.Remove(responseMessage.RequestId);
@@ -98,7 +104,7 @@ namespace NodeNet
         /// </summary>
         internal void Shutdown()
         {
-            Trace.Instance.Emit(TraceEventId.ClientShutdown, RemoteNodeInfo.Name);
+            trace.Emit(TraceEventId.ClientShutdown, RemoteNodeInfo.Name);
             receiveThread?.Shutdown();
             sendThread?.Shutdown();
             OnShutdown?.Invoke(this);
@@ -120,6 +126,7 @@ namespace NodeNet
 
         Dictionary<uint, PendingResponseRecord> pendingResponses = new Dictionary<uint, PendingResponseRecord>();
         uint nextRequestId = 1;
+        private Trace trace;
 
         /// <summary>
         /// Sends an outbound request to the connected node
@@ -167,7 +174,7 @@ namespace NodeNet
         /// </summary>
         internal void SendResponse(ResponseMessage message)
         {
-            Trace.Instance.Emit(TraceEventId.SendResponse, message);
+            trace.Emit(TraceEventId.SendResponse, message);
             sendThread.Send(message);
         }
 
